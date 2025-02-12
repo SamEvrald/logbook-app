@@ -1,17 +1,28 @@
 const axios = require("axios");
 const db = require("../models/db");
 
+// Function to generate a case number based on the course
+const generateCaseNumber = async (courseId, courseName) => {
+  const [caseResult] = await db.promise().query(
+    "SELECT COUNT(*) AS count FROM logbook_entries WHERE course_id = ?",
+    [courseId]
+  );
+
+  const entryNumber = caseResult[0].count + 1;
+  return `${courseName.toUpperCase().replace(/\s+/g, "-")}-${entryNumber}`;
+};
+
 exports.createEntry = async (req, res) => {
   try {
-    const { moodle_id, courseId, role_in_task, type_of_work, pathology, clinical_info, content, consentForm } = req.body;
+    const { moodle_id, courseId, role_in_task, type_of_work, pathology, clinical_info, content, consentForm, work_completed_date, media_link } = req.body;
 
-    if (!moodle_id || !courseId) {
-      return res.status(400).json({ message: "❌ Student Moodle ID and Course ID are required." });
+    if (!moodle_id || !courseId || !work_completed_date) {
+      return res.status(400).json({ message: "❌ Student Moodle ID, Course ID, and Work Completed Date are required." });
     }
 
-    console.log(`🛠️ Received Entry Request:`, req.body);
+    console.log("🛠️ Received Entry Request:", req.body);
 
-    // ✅ 1️⃣ Check if student exists
+    // ✅ Check if student exists
     const [userRows] = await db.promise().query("SELECT id FROM users WHERE moodle_id = ?", [moodle_id]);
 
     if (userRows.length === 0) {
@@ -20,37 +31,25 @@ exports.createEntry = async (req, res) => {
 
     const studentId = userRows[0].id;
 
-    // ✅ 2️⃣ Check if course exists locally
-    const [courseRows] = await db.promise().query("SELECT id FROM courses WHERE id = ?", [courseId]);
+    // ✅ Ensure course exists, otherwise fetch from Moodle
+    let [courseRows] = await db.promise().query("SELECT fullname FROM courses WHERE id = ?", [courseId]);
 
     if (courseRows.length === 0) {
       console.log(`⚠️ Course ID ${courseId} not found locally. Fetching from Moodle...`);
 
-      // 🔥 Fetch course from Moodle
-      const moodleToken = process.env.MOODLE_TOKEN;
-      const moodleBaseUrl = process.env.MOODLE_BASE_URL;
-
-      if (!moodleToken) {
-        console.error("❌ Moodle API token is missing.");
-        return res.status(500).json({ message: "Moodle API token is missing." });
-      }
-
       try {
-        console.log(`🌍 Fetching course from Moodle: Course ID ${courseId}`);
-
-        const response = await axios.get(`${moodleBaseUrl}/webservice/rest/server.php`, {
+        const moodleResponse = await axios.get(`${process.env.MOODLE_BASE_URL}/webservice/rest/server.php`, {
           params: {
-            wstoken: moodleToken,
+            wstoken: process.env.MOODLE_TOKEN,
             wsfunction: "core_course_get_courses",
             moodlewsrestformat: "json",
           },
         });
 
-        if (response.data && Array.isArray(response.data) && response.data.length > 0) {
-          console.log("📥 Moodle API Course Response:", response.data);
+        if (moodleResponse.data && Array.isArray(moodleResponse.data) && moodleResponse.data.length > 0) {
+          console.log("📥 Moodle API Course Response:", moodleResponse.data);
 
-          // ✅ Check if the course exists in the response
-          const foundCourse = response.data.find(course => course.id == courseId);
+          const foundCourse = moodleResponse.data.find(course => course.id == courseId);
 
           if (!foundCourse) {
             console.error(`❌ Course ID ${courseId} not found in Moodle.`);
@@ -61,15 +60,13 @@ exports.createEntry = async (req, res) => {
 
           // ✅ Insert course into local database
           await db.promise().query(
-            `INSERT INTO courses (id, fullname, shortname) VALUES (?, ?, ?) 
-             ON DUPLICATE KEY UPDATE fullname = VALUES(fullname), shortname = VALUES(shortname)`,
+            `INSERT INTO courses (id, fullname, shortname) VALUES (?, ?, ?)`,
             [foundCourse.id, foundCourse.fullname, foundCourse.shortname]
           );
 
-          console.log(`✅ Course ID ${foundCourse.id} inserted into database.`);
+          courseRows = [{ fullname: foundCourse.fullname }];
         } else {
-          console.error("❌ No courses found in Moodle API response.");
-          return res.status(400).json({ message: `Course ID ${courseId} does not exist in Moodle.` });
+          return res.status(400).json({ message: `❌ Course ID ${courseId} does not exist in Moodle.` });
         }
       } catch (error) {
         console.error("❌ Moodle API Fetch Error:", error.response?.data || error.message);
@@ -77,26 +74,28 @@ exports.createEntry = async (req, res) => {
       }
     }
 
-    // ✅ 4️⃣ Insert logbook entry
+    const courseName = courseRows[0].fullname;
+
+    // ✅ Generate Case Number using Course Name & Entry Count
+    const caseNumber = await generateCaseNumber(courseId, courseName);
+
+    // ✅ Insert logbook entry
     console.log(`📝 Creating logbook entry for student ID ${studentId} and course ID ${courseId}`);
 
     await db.promise().query(
       `INSERT INTO logbook_entries 
-       (student_id, course_id, role_in_task, type_of_work, pathology, clinical_info, content, consent_form, status) 
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'submitted')`,
-      [studentId, courseId, role_in_task, type_of_work, pathology, clinical_info, content, consentForm]
+       (case_number, student_id, course_id, role_in_task, type_of_work, pathology, clinical_info, content, consent_form, work_completed_date, media_link, status) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'submitted')`,
+      [caseNumber, studentId, courseId, role_in_task, type_of_work, pathology, clinical_info, content, consentForm, work_completed_date, media_link]
     );
 
-    console.log("✅ Logbook entry created successfully.");
-    res.status(201).json({ message: "✅ Logbook entry created successfully." });
+    res.status(201).json({ message: "✅ Logbook entry created successfully.", case_number: caseNumber });
 
   } catch (error) {
     console.error("❌ Database error:", error);
     res.status(500).json({ message: "Failed to create entry", error: error.message });
   }
 };
-
-
 
 
 // ✅ Fetch all logbook entries for a student
@@ -113,19 +112,33 @@ exports.getStudentEntries = async (req, res) => {
 
         const studentId = userRows[0].id;
 
-        // ✅ Fetch logbook entries for student
+        // ✅ Fetch required logbook entry fields
         const [entries] = await db.promise().query(
-            `SELECT id, course_id, type_of_work, role_in_task, pathology, consent_form, content, status, grade, feedback, entry_date
-             FROM logbook_entries WHERE student_id = ? ORDER BY entry_date DESC`,
+            `SELECT case_number, 
+                    DATE_FORMAT(work_completed_date, '%d/%m/%y') AS work_completed_date,
+                    type_of_work, 
+                    pathology,
+                    content AS task_description, 
+                    media_link, 
+                    consent_form, 
+                    clinical_info,
+                    grade, 
+                    feedback,
+                    status
+             FROM logbook_entries 
+             WHERE student_id = ? 
+             ORDER BY work_completed_date DESC`,
             [studentId]
         );
 
         res.status(200).json(entries);
     } catch (error) {
-        console.error("Database error:", error);
+        console.error("❌ Database error:", error);
         res.status(500).json({ message: "Failed to fetch student logbook entries.", error: error.message });
     }
 };
+
+
 
 // ✅ Fetch all submitted logbook entries for a specific course (Teacher View)
 exports.getSubmittedEntries = async (req, res) => {

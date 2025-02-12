@@ -19,7 +19,8 @@ const NewEntryForm = () => {
   const [pathology, setPathology] = useState("");
   const [consentForm, setConsentForm] = useState("no");
   const [content, setContent] = useState("");
-  const [files, setFiles] = useState([]);
+  const [workCompletedDate, setWorkCompletedDate] = useState(""); // ✅ Work completion date
+  const [mediaLink, setMediaLink] = useState(""); // ✅ Media link instead of file upload
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -43,10 +44,6 @@ const NewEntryForm = () => {
     }
   }, [user, course, token, navigate]);
 
-  const handleFileChange = (e) => {
-    setFiles(Array.from(e.target.files));
-  };
-
   const handleConsentChange = (e) => {
     setConsentForm(e.target.value);
   };
@@ -66,6 +63,11 @@ const NewEntryForm = () => {
       return;
     }
 
+    if (!workCompletedDate) {
+      setError("❌ Error: Work Completed Date is required.");
+      return;
+    }
+
     const studentMoodleId = user.moodle_id;
     const courseId = course.id;
 
@@ -79,34 +81,34 @@ const NewEntryForm = () => {
       pathology,
       consentForm,
       content,
+      workCompletedDate,
+      mediaLink,
     });
 
     try {
-      const formData = new FormData();
-      formData.append("moodle_id", studentMoodleId);
-      formData.append("courseId", courseId);
-      formData.append("role_in_task", roleInTask);
-      formData.append("type_of_work", typeOfWork);
-      formData.append("pathology", pathology);
-      formData.append("clinical_info", clinicalInfo);
-      formData.append("content", content);
-      formData.append("consentForm", consentForm);
-
-      files.forEach((file) => {
-        formData.append("files", file);
-      });
-
-      console.log("🔐 Sending request with token:", token);
-
-      const response = await API.post("/entries", formData, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-          "Authorization": `Bearer ${token}`,
+      const response = await API.post(
+        "/entries",
+        {
+          moodle_id: studentMoodleId,
+          courseId: courseId,
+          role_in_task: roleInTask,
+          type_of_work: typeOfWork,
+          pathology,
+          clinical_info: clinicalInfo,
+          content,
+          consentForm,
+          work_completed_date: workCompletedDate, // ✅ Manually entered date
+          media_link: mediaLink, // ✅ Media link instead of file upload
         },
-      });
+        {
+          headers: {
+            "Authorization": `Bearer ${token}`,
+          },
+        }
+      );
 
       console.log("✅ Entry submitted successfully:", response.data);
-      alert("✅ Entry created successfully!");
+      alert(`✅ Entry created successfully! Case Number: ${response.data.case_number}`);
       navigate("/student");
     } catch (err) {
       console.error("❌ Error submitting entry:", err.response?.data || err.message);
@@ -122,7 +124,7 @@ const NewEntryForm = () => {
       {error && <p style={{ color: "red" }}>{error}</p>}
       <form onSubmit={handleSubmit}>
         <div>
-          <label>Type of Work (e.g., LLO, LLP)</label>
+          <label>Type of Task/Device</label>
           <input type="text" value={typeOfWork} onChange={(e) => setTypeOfWork(e.target.value)} required />
         </div>
 
@@ -141,16 +143,25 @@ const NewEntryForm = () => {
         </div>
 
         <div>
-          <label>Clinical Info</label>
+          <label>Clinical Info/Comments</label>
           <textarea value={clinicalInfo} onChange={(e) => setClinicalInfo(e.target.value)} />
         </div>
 
         <div>
-          <label>Content (Description)</label>
+          <label>Task Description</label>
           <textarea value={content} onChange={(e) => setContent(e.target.value)} required />
         </div>
 
-        {/* ✅ Consent Form (Radio Buttons) */}
+        <div>
+          <label>Work Completed Date</label>
+          <input type="date" value={workCompletedDate} onChange={(e) => setWorkCompletedDate(e.target.value)} required />
+        </div>
+
+        <div>
+          <label>Media Link (e.g., Google Drive, YouTube)</label>
+          <input type="text" value={mediaLink} onChange={(e) => setMediaLink(e.target.value)} />
+        </div>
+
         <div>
           <label>Consent Form:</label>
           <div>
@@ -163,11 +174,6 @@ const NewEntryForm = () => {
               No
             </label>
           </div>
-        </div>
-
-        <div>
-          <label>Files (Images, Videos, etc.)</label>
-          <input type="file" multiple onChange={handleFileChange} />
         </div>
 
         <button type="submit" disabled={loading}>
