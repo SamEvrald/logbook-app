@@ -91,7 +91,7 @@ exports.login = async (req, res) => {
 exports.teacherLogin = async (req, res) => {
   const { username, password } = req.body;
 
-  db.query('SELECT * FROM users WHERE username = ? AND role = "teacher"', [username], (err, results) => {
+   db.query('SELECT * FROM users WHERE username = ? AND role = "teacher"', [username], (err, results) => {
     if (err) {
       console.error("Database error:", err);
       return res.status(500).json({ message: "Failed to fetch user", error: err });

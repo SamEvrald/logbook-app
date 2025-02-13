@@ -3,31 +3,35 @@ const router = express.Router();
 const {
     getAllCourses,
     assignCourseToTeacher,
-    getTeachersWithCourses,
-    getAllTeachers, // ✅ Ensure this exists in adminController.js
+    removeCourseFromTeacher,
+    getAllTeachers,
     signupAdmin,
-    loginAdmin
+    loginAdmin,
+    getAdminProfile,
 } = require("../controllers/adminController");
 
 const authMiddleware = require("../middleware/authMiddleware");
 const roleMiddleware = require("../middleware/roleMiddleware");
 
-// ✅ Fetch all Moodle courses (Admin only)
+// ✅ Admin Profile
+router.get("/profile", authMiddleware, roleMiddleware("admin"), getAdminProfile);
+
+// ✅ Fetch all Moodle courses
 router.get("/courses", authMiddleware, roleMiddleware("admin"), getAllCourses);
 
-// ✅ Fetch all teachers (For Admin Dropdown)
+// ✅ Fetch all teachers
 router.get("/teachers", authMiddleware, roleMiddleware("admin"), getAllTeachers);
-
-// ✅ Get all teachers with their assigned courses
-router.get("/teachers-with-courses", authMiddleware, roleMiddleware("admin"), getTeachersWithCourses);
 
 // ✅ Assign course to teacher
 router.post("/assign-course", authMiddleware, roleMiddleware("admin"), assignCourseToTeacher);
 
-// ✅ Admin Signup Route
+// ✅ Remove course from teacher
+router.post("/remove-course", authMiddleware, roleMiddleware("admin"), removeCourseFromTeacher);
+
+// ✅ Admin Signup
 router.post("/signup", signupAdmin);
 
-// ✅ Admin Login Route
+// ✅ Admin Login
 router.post("/login", loginAdmin);
 
 module.exports = router;

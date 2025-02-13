@@ -2,7 +2,7 @@ const express = require("express");
 const router = express.Router();
 const multer = require("multer");
 
-const { createEntry, getStudentEntries, getSubmittedEntries, gradeEntry, updateEntryStatus } = require("../controllers/entryController");
+const { createEntry, getStudentEntries, getSubmittedEntries, gradeEntry, updateEntryStatus, getTeacherDashboard } = require("../controllers/entryController");
 const authMiddleware = require("../middleware/authMiddleware");
 const roleMiddleware = require("../middleware/roleMiddleware");
 
@@ -15,6 +15,9 @@ router.post("/", authMiddleware, roleMiddleware("student"), upload.array("files"
 
 // ✅ Fetch all logbook entries for a specific student
 router.get("/student/:moodle_id", authMiddleware, roleMiddleware("student"), getStudentEntries);
+
+// ✅ Fetch Teacher Dashboard Data
+router.get("/teacher/:moodle_id", authMiddleware, roleMiddleware("teacher"), getTeacherDashboard);
 
 // ✅ Fetch submitted logbook entries for a course (For Teachers)
 router.get("/submitted/:courseId", authMiddleware, roleMiddleware("teacher"), getSubmittedEntries);

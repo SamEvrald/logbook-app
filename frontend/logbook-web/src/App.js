@@ -29,6 +29,9 @@ function App() {
         <Route path="/teacher" element={<PrivateRoute><TeacherDashboard /></PrivateRoute>} />
         <Route path="/teacher/grade/:entryId" element={<PrivateRoute><GradeEntryForm /></PrivateRoute>} />
         <Route path="*" element={<RoleSelectionPage />} />
+  
+        
+
       </Routes>
     </BrowserRouter>
   );

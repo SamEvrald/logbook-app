@@ -120,13 +120,13 @@ const StudentDashboard = () => {
           <thead>
             <tr>
               <th>Case #</th>
-              <th>Work Completed</th>
-              <th>Type</th>
+              <th>Completion Date</th>
+              <th>Type Of Task/Device</th>
               <th>Pathology</th>
               <th>Task Description</th>
               <th>Media</th>
               <th>Consent</th>
-              <th>Clinical Info</th>
+              <th>Comments</th>
               <th>Grade</th>
               <th>Feedback</th>
               <th>Status</th>

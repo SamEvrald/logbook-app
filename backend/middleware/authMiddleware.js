@@ -17,13 +17,24 @@ module.exports = (req, res, next) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     req.user = decoded;
 
-    if (!decoded.moodle_id) {
-      return res.status(401).json({ message: "Invalid token: Moodle ID missing." });
+    console.log("✅ Decoded Token:", decoded);
+
+    // ✅ Differentiate between admin, teacher & student
+    if (decoded.role === "admin") {
+      req.adminId = decoded.adminId;
+      req.email = decoded.email;
+    } else if (decoded.role === "teacher") {
+      req.teacherId = decoded.teacherId;
+      req.email = decoded.email;
+    } else if (decoded.role === "student") {
+      req.moodle_id = decoded.moodle_id;
+    } else {
+      return res.status(403).json({ message: "Invalid token: Role missing." });
     }
 
     next();
   } catch (err) {
-    console.error("JWT Verification Error:", err.message);
+    console.error("❌ JWT Verification Error:", err.message);
     return res.status(403).json({ message: "Invalid or expired token." });
   }
 };

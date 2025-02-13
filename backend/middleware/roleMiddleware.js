@@ -12,4 +12,13 @@ const roleMiddleware = (requiredRole) => {
   };
 };
 
-module.exports = roleMiddleware;
+module.exports = (requiredRole) => {
+  return (req, res, next) => {
+    if (!req.user || req.user.role !== requiredRole) {
+      return res.status(403).json({ message: `Forbidden: You must be a ${requiredRole} to access this resource.` });
+    }
+    next();
+  };
+};
+
+

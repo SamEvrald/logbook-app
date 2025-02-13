@@ -17,11 +17,11 @@ router.post("/signup", signupTeacher);
 // ✅ Teacher Login
 router.post("/login", loginTeacher);
 
-// ✅ Fetch Assigned Courses for a Teacher (by Email)
+// ✅ Fetch assigned courses
 router.get("/:teacherEmail/courses", authMiddleware, roleMiddleware("teacher"), getTeacherCourses);
 
-// ✅ Get Submitted Entries
-router.get("/:courseId", authMiddleware, roleMiddleware("teacher"), getSubmittedEntries);
+// ✅ Fetch submitted logbook entries for assigned courses
+router.get("/:teacherEmail/entries", authMiddleware, roleMiddleware("teacher"), getSubmittedEntries);
 
 // ✅ Grade an Entry
 router.post("/grade", authMiddleware, roleMiddleware("teacher"), gradeEntry);

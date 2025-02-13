@@ -200,3 +200,50 @@ exports.updateEntryStatus = async (req, res) => {
         res.status(500).json({ message: "Failed to update entry status.", error: error.message });
     }
 };
+
+// Get teacher Dashboard
+exports.getTeacherDashboard = async (req, res) => {
+  const { moodle_id } = req.params;
+
+  try {
+      // ✅ Get teacher's user ID
+      const [teacherRows] = await db.promise().query("SELECT id, fullname FROM users WHERE moodle_id = ? AND role = 'teacher'", [moodle_id]);
+
+      if (teacherRows.length === 0) {
+          return res.status(404).json({ message: "Teacher not found or not authorized." });
+      }
+
+      const teacherId = teacherRows[0].id;
+      const teacherName = teacherRows[0].fullname;
+
+      // ✅ Get courses assigned to this teacher
+      const [courseRows] = await db.promise().query(
+          "SELECT c.id, c.fullname, c.shortname FROM courses c INNER JOIN teacher_courses tc ON c.id = tc.course_id WHERE tc.teacher_id = ?",
+          [teacherId]
+      );
+
+      if (courseRows.length === 0) {
+          return res.status(200).json({ teacherName, courses: [], entries: [] });
+      }
+
+      const courseIds = courseRows.map(course => course.id);
+
+      // ✅ Get logbook entries for these courses
+      const [entries] = await db.promise().query(
+          `SELECT l.id, l.case_number, l.student_id, u.fullname AS student_name, l.course_id, c.fullname AS course_name, l.type_of_work, l.pathology, 
+                  l.content AS task_description, l.media_link, l.consent_form, l.clinical_info, l.grade, l.feedback, l.status, l.work_completed_date
+           FROM logbook_entries l
+           JOIN users u ON l.student_id = u.id
+           JOIN courses c ON l.course_id = c.id
+           WHERE l.course_id IN (?) 
+           ORDER BY l.work_completed_date DESC`,
+          [courseIds]
+      );
+
+      res.status(200).json({ teacherName, courses: courseRows, entries });
+  } catch (error) {
+      console.error("❌ Database error:", error);
+      res.status(500).json({ message: "Failed to fetch teacher dashboard data.", error: error.message });
+  }
+};
+

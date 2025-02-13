@@ -12,20 +12,36 @@ const TeacherLoginPage = () => {
   const handleLogin = async (e) => {
     e.preventDefault();
     setError("");
-  
+
     try {
       const response = await API.post("/teachers/login", { email, password });
-  
-      const { token, user } = response.data;
-      localStorage.setItem("token", token);
-      localStorage.setItem("user", JSON.stringify(user));  // ✅ Store user properly
-  
-      navigate("/teacher", { state: { user } });
+
+      console.log("✅ API Response:", response.data);
+
+      if (!response.data.token) {
+        console.error("❌ No token received!");
+        setError("Server error: No token received.");
+        return;
+      }
+
+      localStorage.setItem("token", response.data.token);
+      localStorage.setItem("user", JSON.stringify(response.data.user));
+
+      console.log("✅ Token Stored:", localStorage.getItem("token"));
+
+      if (response.data.user.role === "teacher") {
+        navigate("/teacher");
+      } else {
+        console.error("❌ Unauthorized role:", response.data.user.role);
+        setError("Invalid user role.");
+      }
+
     } catch (err) {
-      setError("Invalid credentials or server error.");
+      console.error("❌ Login Failed:", err.response?.data || err.message);
+      setError("Invalid credentials. Please try again.");
     }
   };
-  
+
   return (
     <div style={{ maxWidth: "400px", margin: "50px auto" }}>
       <h2>Teacher Login</h2>
@@ -47,4 +63,4 @@ const TeacherLoginPage = () => {
   );
 };
 
-export default TeacherLoginPage; // ✅ Ensure it's a default export
+export default TeacherLoginPage;

@@ -3,6 +3,29 @@ const axios = require("axios");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 
+
+// ✅ Fetch Admin Profile
+exports.getAdminProfile = async (req, res) => {
+  res.status(200).json({ username: req.user.username, email: req.user.email });
+};
+
+// ✅ Remove a course from a teacher
+exports.removeCourseFromTeacher = async (req, res) => {
+  const { teacher_id, course_id } = req.body;
+
+  if (!teacher_id || !course_id) {
+      return res.status(400).json({ message: "Teacher ID and Course ID are required." });
+  }
+
+  try {
+      await db.promise().query("DELETE FROM teacher_courses WHERE teacher_id = ? AND course_id = ?", [teacher_id, course_id]);
+      res.json({ message: "Course removed from teacher successfully." });
+  } catch (error) {
+      console.error("Database error:", error);
+      res.status(500).json({ message: "Failed to remove course.", error: error.message });
+  }
+};
+
 // ✅ Fetch all courses from Moodle
 exports.getAllCourses = async (req, res) => {
     try {
